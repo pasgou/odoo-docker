@@ -47,6 +47,9 @@ RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main" > /etc/
 ADD sources/pip-req.txt /opt/sources/pip-req.txt
 RUN pip install -r /opt/sources/pip-req.txt
 
+# Install requirements for Clouder
+RUN pip install paramiko erppeek apache-libcloud
+
 # must unzip this package to make it visible as an odoo external dependency
 RUN easy_install -UZ py3o.template
 
