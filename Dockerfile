@@ -50,6 +50,8 @@ RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main" > /etc/
 # Install Odoo python dependencies
 ADD sources/pip-req.txt /opt/sources/pip-req.txt
 RUN pip install -r /opt/sources/pip-req.txt
+# Install requirements for Clouder
+RUN pip install paramiko erppeek apache-libcloud
 
 # SM: Install LESS
 RUN npm install -g less less-plugin-clean-css && \
