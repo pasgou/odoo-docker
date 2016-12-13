@@ -1,4 +1,4 @@
-FROM ubuntu:14.04
+FROM ubuntu:16.04
 MAINTAINER Elico Corp <contact@elico-corp.com>
 
 # generate locales
@@ -27,7 +27,7 @@ RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main" > /etc/
     libxrender1 libxext6 fontconfig \
     python-zsi \
     python-lasso \
-    libzmq3 \
+    libzmq5 \
     # libpq-dev is needed to install pg_config which is required by psycopg2
     libpq-dev \
     # These libraries are needed to install the pip modules
@@ -45,11 +45,35 @@ RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main" > /etc/
     # This library is necessary to upgrade PIL/pillow module
     libjpeg8-dev \
     # Git is required to clone Odoo OCB project
-    git
+    git \
+    # Utilities
+    wget \
+    nano
 
+# create the odoo user
+RUN adduser --home=/opt/odoo --disabled-password --gecos "" --shell=/bin/bash odoo
+
+# changing user is required by openerp which won't start with root
+# makes the container more unlikely to be unwillingly changed in interactive mode
+USER odoo
+
+RUN /bin/bash -c "mkdir -p /opt/odoo/{bin,etc,sources/odoo,addons/CE_inherited,addons/clouder,addons/enterprise,addons/ENT_inherit,addons/external,addons/nonfree,addons/private,data}"
+RUN /bin/bash -c "mkdir -p /opt/odoo/var/{run,log,egg-cache}"
+
+# Add Odoo sources and remove .git folder in order to reduce image size
+WORKDIR /opt/odoo/sources
+RUN git clone https://github.com/odoo/odoo.git -b 9.0 odoo && \
+  rm -rf odoo/.git
+
+# Add Clouder modules and dependencies
+WORKDIR /opt/odoo/addons
+RUN git clone https://github.com/clouder-community/clouder.git clouder && git clone https://github.com/OCA/connector.git -b 9.0 external && \
+  rm -rf clouder/.git && rm -rf external/.git
+
+USER root
 # Install Odoo python dependencies
-ADD sources/pip-req.txt /opt/sources/pip-req.txt
-RUN pip install -r /opt/sources/pip-req.txt
+RUN pip install -r /opt/odoo/sources/odoo/requirements.txt
+RUN pip install -r /opt/odoo/addons/clouder/requirements.txt
 
 # Install requirements for Clouder
 RUN pip install paramiko erppeek apache-libcloud
@@ -65,21 +89,6 @@ RUN easy_install -UZ py3o.template
 # Warning: do not use latest version (0.12.2.1) because it causes the footer issue (see https://github.com/odoo/odoo/issues/4806)
 ADD http://download.gna.org/wkhtmltopdf/0.12/0.12.1/wkhtmltox-0.12.1_linux-trusty-amd64.deb /opt/sources/wkhtmltox.deb
 RUN dpkg -i /opt/sources/wkhtmltox.deb
-
-# create the odoo user
-RUN adduser --home=/opt/odoo --disabled-password --gecos "" --shell=/bin/bash odoo
-
-# changing user is required by openerp which won't start with root
-# makes the container more unlikely to be unwillingly changed in interactive mode
-USER odoo
-
-RUN /bin/bash -c "mkdir -p /opt/odoo/{bin,etc,sources/odoo,additional_addons,data}"
-RUN /bin/bash -c "mkdir -p /opt/odoo/var/{run,log,egg-cache}"
-
-# Add Odoo OCB sources and remove .git folder in order to reduce image size
-WORKDIR /opt/odoo/sources
-RUN git clone https://github.com/OCA/OCB.git -b 9.0 odoo && \
-  rm -rf odoo/.git
 
 # Execution environment
 USER 0
