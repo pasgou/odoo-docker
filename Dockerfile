@@ -67,6 +67,22 @@ WORKDIR /opt/odoo/sources
 RUN git clone https://github.com/OCA/OCB.git -b 10.0 odoo && \
   rm -rf odoo/.git
 
+USER root
+# Install Odoo python dependencies
+RUN pip install -r /opt/odoo/sources/odoo/requirements.txt
+
+# SM: Install LESS
+RUN npm install -g less less-plugin-clean-css && \
+  ln -s /usr/bin/nodejs /usr/bin/node
+
+# must unzip this package to make it visible as an odoo external dependency
+RUN easy_install -UZ py3o.template
+
+# install wkhtmltopdf based on QT5
+# Warning: do not use latest version (0.12.2.1) because it causes the footer issue (see https://github.com/odoo/odoo/issues/4806)
+ADD http://download.gna.org/wkhtmltopdf/0.12/0.12.1/wkhtmltox-0.12.1_linux-trusty-amd64.deb /opt/sources/wkhtmltox.deb
+RUN dpkg -i /opt/sources/wkhtmltox.deb
+
 # Execution environment
 USER 0
 ADD sources/odoo.conf /opt/sources/odoo.conf
