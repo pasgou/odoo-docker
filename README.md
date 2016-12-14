@@ -13,3 +13,8 @@ This work is original based on the docker from http://www.xcg-consulting.fr and 
 * "/opt/odoo/addons/external" : Community modules (OCA or others),
 * "/opt/odoo/addons/nonfree" : non free modules (paid themes for example), and your own modules wich depend from nonfree module(s)
 * "/opt/odoo/addons/private" : your own modules from scratch, even if they depend from other (community) modules
+
+# Others volumes :
+* "/opt/odoo/var"
+* "/opt/odoo/etc"
+* "/opt/odoo/data"
