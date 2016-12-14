@@ -59,7 +59,7 @@ RUN adduser --home=/opt/odoo --disabled-password --gecos "" --shell=/bin/bash od
 # makes the container more unlikely to be unwillingly changed in interactive mode
 USER odoo
 
-RUN /bin/bash -c "mkdir -p /opt/odoo/{bin,etc,sources/odoo,addons/CE_inherited,addons/clouder,addons/enterprise,addons/ENT_inherit,addons/external,addons/nonfree,addons/private,data}"
+RUN /bin/bash -c "mkdir -p /opt/odoo/{bin,etc,sources/odoo,addons/CE_inherited,addons/enterprise,addons/ENT_inherit,addons/external,addons/nonfree,addons/private,data}"
 RUN /bin/bash -c "mkdir -p /opt/odoo/var/{run,log,egg-cache}"
 
 # Add Odoo OCB sources and remove .git folder in order to reduce image size
@@ -90,7 +90,6 @@ WORKDIR /app
 
 # Add volumes. For addons :
 # "/opt/odoo/addons/CE_inherited" : adapted modules from Odoo official Community version,
-# "/opt/odoo/addons/clouder" : Clouder modules (do not use a filesytem pointer, Clouder is imported (see before),
 # "/opt/odoo/addons/enterprise" : volume where install Enterprise modules,
 # "/opt/odoo/addons/ENT_inherit" : if modules from Enterprise version are used in new or inherited modules,
 # "/opt/odoo/addons/external" : Community modules (OCA or others),
