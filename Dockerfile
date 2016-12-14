@@ -1,4 +1,4 @@
-FROM ubuntu:14.04
+FROM ubuntu:16.04
 MAINTAINER Elico Corp <contact@elico-corp.com>
 
 # generate locales
@@ -27,7 +27,7 @@ RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main" > /etc/
     libxrender1 libxext6 fontconfig \
     python-zsi \
     python-lasso \
-    libzmq3 \
+    libzmq5 \
     # libpq-dev is needed to install pg_config which is required by psycopg2
     libpq-dev \
     # These libraries are needed to install the pip modules
