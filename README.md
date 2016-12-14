@@ -7,7 +7,6 @@ This work is original based on the docker from http://www.xcg-consulting.fr and 
 
 # Volumes for addons :
 * "/opt/odoo/addons/CE_inherited" : adapted modules from Odoo official Community version,
-* "/opt/odoo/addons/clouder" : Clouder modules (do not use a filesytem pointer, Clouder is imported (see before),
 * "/opt/odoo/addons/enterprise" : volume where install Enterprise modules,
 * "/opt/odoo/addons/ENT_inherit" : if modules from Enterprise version are used in new or inherited modules,
 * "/opt/odoo/addons/external" : Community modules (OCA or others),
