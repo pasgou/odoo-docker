@@ -50,6 +50,8 @@ RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main" > /etc/
     wget \
     nano
 
+RUN pip install --upgrade pip
+
 # create the odoo user
 RUN adduser --home=/opt/odoo --disabled-password --gecos "" --shell=/bin/bash odoo
 
@@ -62,21 +64,12 @@ RUN /bin/bash -c "mkdir -p /opt/odoo/var/{run,log,egg-cache}"
 
 # Add Odoo sources and remove .git folder in order to reduce image size
 WORKDIR /opt/odoo/sources
-RUN git clone https://github.com/odoo/odoo.git -b 9.0 odoo && \
+RUN git clone https://github.com/OCA/OCB.git -b 9.0 odoo && \
   rm -rf odoo/.git
-
-# Add Clouder modules and dependencies
-WORKDIR /opt/odoo/addons
-RUN git clone https://github.com/clouder-community/clouder.git clouder && git clone https://github.com/OCA/connector.git -b 9.0 external && \
-  rm -rf clouder/.git && rm -rf external/.git
 
 USER root
 # Install Odoo python dependencies
 RUN pip install -r /opt/odoo/sources/odoo/requirements.txt
-RUN pip install -r /opt/odoo/addons/clouder/requirements.txt
-
-# Install requirements for Clouder
-RUN pip install paramiko erppeek apache-libcloud
 
 # SM: Install LESS
 RUN npm install -g less less-plugin-clean-css && \
@@ -94,10 +87,21 @@ RUN dpkg -i /opt/sources/wkhtmltox.deb
 USER 0
 ADD sources/odoo.conf /opt/sources/odoo.conf
 WORKDIR /app
-VOLUME ["/opt/odoo/var", "/opt/odoo/etc", "/opt/odoo/additional_addons", "/opt/odoo/data"]
+
+# Add volumes. For addons :
+# "/opt/odoo/addons/CE_inherited" : adapted modules from Odoo official Community version,
+# "/opt/odoo/addons/clouder" : Clouder modules (do not use a filesytem pointer, Clouder is imported (see before),
+# "/opt/odoo/addons/enterprise" : volume where install Enterprise modules,
+# "/opt/odoo/addons/ENT_inherit" : if modules from Enterprise version are used in new or inherited modules,
+# "/opt/odoo/addons/external" : Community modules (OCA or others),
+# "/opt/odoo/addons/nonfree" : non free modules (paid themes for example), and your own modules wich depend from nonfree module(s)
+# "/opt/odoo/addons/private" : your own modules from scratch, even if they depend from other (community) modules
+VOLUME ["/opt/odoo/var", "/opt/odoo/etc", "/opt/odoo/addons/CE_inherited","/opt/odoo/addons/enterprise","/opt/odoo/addons/ENT_inherit","/opt/odoo/addons/external","/opt/odoo/addons/nonfree","/opt/odoo/addons/private", "/opt/odoo/data"]
+
 # Set the default entrypoint (non overridable) to run when starting the container
 ENTRYPOINT ["/app/bin/boot"]
 CMD ["help"]
+
 # Expose the odoo ports (for linked containers)
 EXPOSE 8069 8072
 ADD bin /app/bin/
