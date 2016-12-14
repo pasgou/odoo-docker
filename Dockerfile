@@ -45,23 +45,12 @@ RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main" > /etc/
     # This library is necessary to upgrade PIL/pillow module
     libjpeg8-dev \
     # Git is required to clone Odoo OCB project
-    git
+    git \
+    # Utilities
+    wget \
+    nano
 
-# Install Odoo python dependencies
-ADD sources/pip-req.txt /opt/sources/pip-req.txt
-RUN pip install -r /opt/sources/pip-req.txt
-
-# SM: Install LESS
-RUN npm install -g less less-plugin-clean-css && \
-  ln -s /usr/bin/nodejs /usr/bin/node
-
-# must unzip this package to make it visible as an odoo external dependency
-RUN easy_install -UZ py3o.template
-
-# install wkhtmltopdf based on QT5
-# Warning: do not use latest version (0.12.2.1) because it causes the footer issue (see https://github.com/odoo/odoo/issues/4806)
-ADD http://download.gna.org/wkhtmltopdf/0.12/0.12.1/wkhtmltox-0.12.1_linux-trusty-amd64.deb /opt/sources/wkhtmltox.deb
-RUN dpkg -i /opt/sources/wkhtmltox.deb
+RUN pip install --upgrade pip
 
 # create the odoo user
 RUN adduser --home=/opt/odoo --disabled-password --gecos "" --shell=/bin/bash odoo
