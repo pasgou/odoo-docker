@@ -1,4 +1,4 @@
-FROM ubuntu:14.04
+FROM ubuntu:16.04
 MAINTAINER Elico Corp <contact@elico-corp.com>
 
 # generate locales
@@ -27,7 +27,7 @@ RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main" > /etc/
     libxrender1 libxext6 fontconfig \
     python-zsi \
     python-lasso \
-    libzmq3 \
+    libzmq5 \
     # libpq-dev is needed to install pg_config which is required by psycopg2
     libpq-dev \
     # These libraries are needed to install the pip modules
@@ -38,17 +38,42 @@ RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main" > /etc/
     libldap2-dev \
     libsasl2-dev \
     libssl-dev \
+    # Librairies required for LESS
+    node-less \
+    nodejs \
+    npm \
     # This library is necessary to upgrade PIL/pillow module
     libjpeg8-dev \
     # Git is required to clone Odoo OCB project
-    git
+    git \
+    # Utilities
+    wget \
+    nano
 
+RUN pip install --upgrade pip
+
+# create the odoo user
+RUN adduser --home=/opt/odoo --disabled-password --gecos "" --shell=/bin/bash odoo
+
+# changing user is required by openerp which won't start with root
+# makes the container more unlikely to be unwillingly changed in interactive mode
+USER odoo
+
+RUN /bin/bash -c "mkdir -p /opt/odoo/{bin,etc,sources/odoo,addons/inherited,addons/external,addons/nonfree,addons/private,data}"
+RUN /bin/bash -c "mkdir -p /opt/odoo/var/{run,log,egg-cache}"
+
+# Add Odoo sources and remove .git folder in order to reduce image size
+WORKDIR /opt/odoo/sources
+RUN git clone https://github.com/OCA/OCB.git -b 8.0 odoo && \
+  rm -rf odoo/.git
+
+USER root
 # Install Odoo python dependencies
-ADD sources/pip-req.txt /opt/sources/pip-req.txt
-RUN pip install -r /opt/sources/pip-req.txt
+RUN pip install -r /opt/odoo/sources/odoo/requirements.txt
 
-# Install requirements for Clouder
-RUN pip install paramiko erppeek apache-libcloud
+# SM: Install LESS
+RUN npm install -g less less-plugin-clean-css && \
+  ln -s /usr/bin/nodejs /usr/bin/node
 
 # must unzip this package to make it visible as an odoo external dependency
 RUN easy_install -UZ py3o.template
@@ -58,29 +83,22 @@ RUN easy_install -UZ py3o.template
 ADD http://download.gna.org/wkhtmltopdf/0.12/0.12.1/wkhtmltox-0.12.1_linux-trusty-amd64.deb /opt/sources/wkhtmltox.deb
 RUN dpkg -i /opt/sources/wkhtmltox.deb
 
-# create the odoo user
-RUN adduser --home=/opt/odoo --disabled-password --gecos "" --shell=/bin/bash odoo
-
-# changing user is required by openerp which won't start with root
-# makes the container more unlikely to be unwillingly changed in interactive mode
-USER odoo
-
-RUN /bin/bash -c "mkdir -p /opt/odoo/{bin,etc,sources/odoo,additional_addons,data}"
-RUN /bin/bash -c "mkdir -p /opt/odoo/var/{run,log,egg-cache}"
-
-# Add Odoo OCB sources and remove .git folder in order to reduce image size
-WORKDIR /opt/odoo/sources
-RUN git clone https://github.com/OCA/OCB.git -b 8.0 odoo && \
-  rm -rf odoo/.git
-
 # Execution environment
 USER 0
 ADD sources/odoo.conf /opt/sources/odoo.conf
 WORKDIR /app
-VOLUME ["/opt/odoo/var", "/opt/odoo/etc", "/opt/odoo/additional_addons", "/opt/odoo/data"]
+
+# Add volumes. For addons :
+# "/opt/odoo/addons/inherited" : adapted modules from Odoo official Community version,
+# "/opt/odoo/addons/external" : Community modules (OCA or others),
+# "/opt/odoo/addons/nonfree" : non free modules (paid themes for example), and your own modules wich depend from nonfree module(s)
+# "/opt/odoo/addons/private" : your own modules from scratch, even if they depend from other (community) modules
+VOLUME ["/opt/odoo/var", "/opt/odoo/etc", "/opt/odoo/addons/inherited","/opt/odoo/addons/external","/opt/odoo/addons/nonfree","/opt/odoo/addons/private", "/opt/odoo/data"]
+
 # Set the default entrypoint (non overridable) to run when starting the container
 ENTRYPOINT ["/app/bin/boot"]
 CMD ["help"]
+
 # Expose the odoo ports (for linked containers)
 EXPOSE 8069 8072
 ADD bin /app/bin/
