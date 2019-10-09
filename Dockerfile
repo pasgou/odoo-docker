@@ -1,105 +1,96 @@
 FROM ubuntu:18.04
-MAINTAINER Pascal GOUHIER <info@copagex.fr>
+MAINTAINER Pascal GOUHIER, COPAGEX <pascal.gouhier@copagex.fr>
 
-# generate locales
-RUN locale-gen en_US.UTF-8 && update-locale
-RUN echo 'LANG="en_US.UTF-8"' > /etc/default/locale
+# Define build constants
+ENV GIT_BRANCH=12.0 \
+  PYTHON_BIN=python3 \
+  SERVICE_BIN=odoo-bin
 
-# Add the PostgreSQL PGP key to verify their Debian packages.
-# It should be the same key as https://www.postgresql.org/media/keys/ACCC4CF8.asc
-RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
+# Set timezone to UTC
+RUN ln -sf /usr/share/zoneinfo/Etc/UTC /etc/localtime
 
-# Add PostgreSQL's repository. It contains the most recent stable release
-#     of PostgreSQL, ``9.5``.
-# install dependencies as distrib packages when system bindings are required
-# some of them extend the basic odoo requirements for a better "apps" compatibility
-# most dependencies are distributed as wheel packages at the next step
-RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ xenial-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
-  apt-get update && \
-  apt-get -yq install \
-    adduser \
-    ghostscript \
-    postgresql-client-9.5 \
-    python \
-    python-pip \
-    python-imaging \
-    python-pychart python-libxslt1 xfonts-base xfonts-75dpi \
-    libxrender1 libxext6 fontconfig \
-    python-zsi \
-    python-lasso \
-    libzmq5 \
-    # libpq-dev is needed to install pg_config which is required by psycopg2
-    libpq-dev \
-    # These libraries are needed to install the pip modules
-    python-dev \
-    libffi-dev \
-    libxml2-dev \
-    libxslt1-dev \
-    libldap2-dev \
-    libsasl2-dev \
-    libssl-dev \
-    # Librairies required for LESS
-    node-less \
-    nodejs \
-    npm \
-    # This library is necessary to upgrade PIL/pillow module
-    libjpeg8-dev \
-    # Git is required to clone Odoo OCB project
-    git \
-    # Utilities
-    wget \
-    nano
+# Generate locales
+RUN apt update \
+  && apt -yq install locales \
+  && locale-gen en_US.UTF-8 \
+  && update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
 
-RUN pip install --upgrade pip
+# Install APT dependencies
+ADD sources/apt.txt /opt/sources/apt.txt
+RUN apt update \
+  && awk '! /^ *(#|$)/' /opt/sources/apt.txt | xargs -r apt install -yq
 
-# create the odoo user
-RUN adduser --home=/opt/odoo --disabled-password --gecos "" --shell=/bin/bash odoo
+# Create the odoo user
+RUN useradd --create-home --home-dir /opt/odoo --no-log-init odoo
 
-# changing user is required by openerp which won't start with root
-# makes the container more unlikely to be unwillingly changed in interactive mode
+# Switch to user odoo to create the folders mapped with volumes, else the
+# corresponding folders will be created by root on the host
 USER odoo
 
-RUN /bin/bash -c "mkdir -p /opt/odoo/{bin,etc,sources/odoo,addons/CE_inherited,addons/enterprise,addons/ENT_inherit,addons/external,addons/nonfree,addons/private,data}"
-RUN /bin/bash -c "mkdir -p /opt/odoo/var/{run,log,egg-cache}"
+# If the folders are created with "RUN mkdir" command, they will belong to root
+# instead of odoo! Hence the "RUN /bin/bash -c" trick.
+RUN /bin/bash -c "mkdir -p /opt/odoo/{etc,sources/odoo,additional_addons,data,ssh}"
 
-# Add Odoo OCB sources and remove .git folder in order to reduce image size
+# Add Odoo sources and remove .git folder in order to reduce image size
 WORKDIR /opt/odoo/sources
-RUN git clone https://github.com/OCA/OCB.git -b 12.0 odoo && \
-  rm -rf odoo/.git
+RUN git clone --depth=1 https://github.com/odoo/odoo.git -b $GIT_BRANCH \
+  && rm -rf odoo/.git
 
-USER root
+ADD sources/odoo.conf /opt/odoo/etc/odoo.conf
+ADD auto_addons /opt/odoo/auto_addons
+
+User 0
+
 # Install Odoo python dependencies
-RUN pip install -r /opt/odoo/sources/odoo/requirements.txt
+RUN pip3 install -r /opt/odoo/sources/odoo/requirements.txt
 
-# SM: Install LESS
-RUN npm install -g less less-plugin-clean-css && \
-  ln -s /usr/bin/nodejs /usr/bin/node
+# Install extra python dependencies
+ADD sources/pip.txt /opt/sources/pip.txt
+RUN pip3 install -r /opt/sources/pip.txt
 
-# must unzip this package to make it visible as an odoo external dependency
-RUN easy_install -UZ py3o.template
+# Install wkhtmltopdf based on QT5
+ADD https://github.com/wkhtmltopdf/wkhtmltopdf/releases/download/0.12.5/wkhtmltox_0.12.5-1.xenial_amd64.deb \
+  /opt/sources/wkhtmltox.deb
+RUN apt update \
+  && apt install -yq xfonts-base xfonts-75dpi \
+  && dpkg -i /opt/sources/wkhtmltox.deb
 
-# install wkhtmltopdf based on QT5
-# Warning: do not use latest version (0.12.2.1) because it causes the footer issue (see https://github.com/odoo/odoo/issues/4806)
-ADD https://downloads.wkhtmltopdf.org/0.12/0.12.5/wkhtmltox_0.12.5-1.bionic_amd64.deb /opt/sources/wkhtmltox.deb
-RUN dpkg -i /opt/sources/wkhtmltox.deb
+# Startup script for custom setup
+ADD sources/startup.sh /opt/scripts/startup.sh
 
-# Execution environment
-USER 0
-ADD sources/odoo.conf /opt/sources/odoo.conf
-WORKDIR /app
+# Provide read/write access to odoo group (for host user mapping). This command
+# must run before creating the volumes since they become readonly until the
+# container is started.
+RUN chmod -R 775 /opt/odoo && chown -R odoo:odoo /opt/odoo
 
-# Add volumes. For addons :
-# "/opt/odoo/addons/CE_inherited" : adapted modules from Odoo official Community version,
-# "/opt/odoo/addons/enterprise" : volume where install Enterprise modules,
-# "/opt/odoo/addons/ENT_inherit" : if modules from Enterprise version are used in new or inherited modules,
-# "/opt/odoo/addons/external" : Community modules (OCA or others),
-# "/opt/odoo/addons/nonfree" : non free modules (paid themes for example), and your own modules wich depend from nonfree module(s)
-# "/opt/odoo/addons/private" : your own modules from scratch, even if they depend from other (community) modules
-VOLUME ["/opt/odoo/var", "/opt/odoo/etc", "/opt/odoo/addons/CE_inherited","/opt/odoo/addons/enterprise","/opt/odoo/addons/ENT_inherit","/opt/odoo/addons/external","/opt/odoo/addons/nonfree","/opt/odoo/addons/private", "/opt/odoo/data"]
+VOLUME [ \
+  "/opt/odoo/etc", \
+  "/opt/odoo/additional_addons", \
+  "/opt/odoo/data", \
+  "/opt/odoo/ssh", \
+  "/opt/scripts" \
+]
 
-# Set the default entrypoint (non overridable) to run when starting the container
-ENTRYPOINT ["/app/bin/boot"]
-CMD ["help"]
+# Use README for the help & man commands
+ADD README.md /usr/share/man/man.txt
+# Remove anchors and links to anchors to improve readability
+RUN sed -i '/^<a name=/ d' /usr/share/man/man.txt
+RUN sed -i -e 's/\[\^\]\[toc\]//g' /usr/share/man/man.txt
+RUN sed -i -e 's/\(\[.*\]\)(#.*)/\1/g' /usr/share/man/man.txt
+# For help command, only keep the "Usage" section
+RUN from=$( awk '/^## Usage/{ print NR; exit }' /usr/share/man/man.txt ) && \
+  from=$(expr $from + 1) && \
+  to=$( awk '/^    \$ docker-compose up/{ print NR; exit }' /usr/share/man/man.txt ) && \
+  head -n $to /usr/share/man/man.txt | \
+  tail -n +$from | \
+  tee /usr/share/man/help.txt > /dev/null
+
+# Use dumb-init as init system to launch the boot script
+ADD https://github.com/Yelp/dumb-init/releases/download/v1.2.0/dumb-init_1.2.0_amd64.deb /opt/sources/dumb-init.deb
+RUN dpkg -i /opt/sources/dumb-init.deb
+ADD bin/boot /usr/bin/boot
+ENTRYPOINT [ "/usr/bin/dumb-init", "/usr/bin/boot" ]
+CMD [ "help" ]
+
 # Expose the odoo ports (for linked containers)
 EXPOSE 8069 8072
-ADD bin /app/bin/
