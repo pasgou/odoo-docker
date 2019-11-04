@@ -10,16 +10,16 @@ RUN echo 'LANG="en_US.UTF-8"' > /etc/default/locale
 RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
 
 # Add PostgreSQL's repository. It contains the most recent stable release
-#     of PostgreSQL, ``9.5``.
+#     of PostgreSQL.
 # install dependencies as distrib packages when system bindings are required
 # some of them extend the basic odoo requirements for a better "apps" compatibility
 # most dependencies are distributed as wheel packages at the next step
-RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ xenial-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
+RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
   apt-get update && \
   apt-get -yq install \
     adduser \
     ghostscript \
-    postgresql-client-9.5 \
+    postgresql-client-10 \
     python \
     python-pip \
     python-imaging \
@@ -59,7 +59,7 @@ RUN adduser --home=/opt/odoo --disabled-password --gecos "" --shell=/bin/bash od
 # makes the container more unlikely to be unwillingly changed in interactive mode
 USER odoo
 
-RUN /bin/bash -c "mkdir -p /opt/odoo/{bin,etc,sources/odoo,addons/CE_inherited,addons/enterprise,addons/ENT_inherit,addons/external,addons/nonfree,addons/private,data}"
+RUN /bin/bash -c "mkdir -p /opt/odoo/{bin,etc,sources/odoo,addons/CE_inherited,addons/external,addons/nonfree,addons/private,data}"
 RUN /bin/bash -c "mkdir -p /opt/odoo/var/{run,log,egg-cache}"
 
 # Add Odoo OCB sources and remove .git folder in order to reduce image size
@@ -90,16 +90,15 @@ WORKDIR /app
 
 # Add volumes. For addons :
 # "/opt/odoo/addons/CE_inherited" : adapted modules from Odoo official Community version,
-# "/opt/odoo/addons/enterprise" : volume where install Enterprise modules,
-# "/opt/odoo/addons/ENT_inherit" : if modules from Enterprise version are used in new or inherited modules,
 # "/opt/odoo/addons/external" : Community modules (OCA or others),
 # "/opt/odoo/addons/nonfree" : non free modules (paid themes for example), and your own modules wich depend from nonfree module(s)
 # "/opt/odoo/addons/private" : your own modules from scratch, even if they depend from other (community) modules
-VOLUME ["/opt/odoo/var", "/opt/odoo/etc", "/opt/odoo/addons/CE_inherited","/opt/odoo/addons/enterprise","/opt/odoo/addons/ENT_inherit","/opt/odoo/addons/external","/opt/odoo/addons/nonfree","/opt/odoo/addons/private", "/opt/odoo/data"]
+VOLUME ["/opt/odoo/var", "/opt/odoo/etc", "/opt/odoo/addons/CE_inherited","/opt/odoo/addons/external","/opt/odoo/addons/nonfree","/opt/odoo/addons/private", "/opt/odoo/data"]
 
 # Set the default entrypoint (non overridable) to run when starting the container
+ADD bin/boot /app/bin/boot
 ENTRYPOINT ["/app/bin/boot"]
 CMD ["help"]
 # Expose the odoo ports (for linked containers)
 EXPOSE 8069 8072
-ADD bin /app/bin/
+
