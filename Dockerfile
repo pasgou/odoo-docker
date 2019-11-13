@@ -15,8 +15,8 @@ RUN apt -yq install gnupg && apt-key adv --keyserver keyserver.ubuntu.com --recv
 # some of them extend the basic odoo requirements for a better "apps" compatibility
 # most dependencies are distributed as wheel packages at the next step
 RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
-  apt-get update && \
-  apt-get -yq install \
+  apt update && \
+  apt -yq install \
     adduser \
     ghostscript \
     postgresql-client-10 \
@@ -41,6 +41,7 @@ RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main" > /etc/
     # Librairies required for LESS
     node-less \
     nodejs \
+    node-gyp \
     npm \
     # This library is necessary to upgrade PIL/pillow module
     libjpeg8-dev \
