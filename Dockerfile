@@ -81,7 +81,7 @@ RUN easy_install -UZ py3o.template
 # install wkhtmltopdf based on QT5
 # Warning: do not use latest version (0.12.2.1) because it causes the footer issue (see https://github.com/odoo/odoo/issues/4806)
 ADD https://downloads.wkhtmltopdf.org/0.12/0.12.5/wkhtmltox_0.12.5-1.bionic_amd64.deb /opt/sources/wkhtmltox.deb
-RUN dpkg -i /opt/sources/wkhtmltox.deb
+RUN dpkg -i /opt/sources/wkhtmltox.deb && apt install -f
 
 # Execution environment
 USER 0
