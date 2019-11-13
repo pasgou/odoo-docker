@@ -2,7 +2,7 @@ FROM ubuntu:18.04
 MAINTAINER Pascal GOUHIER <info@copagex.fr>
 
 # generate locales
-RUN locale-gen en_US.UTF-8 && update-locale
+RUN apt update && apt -yq install locales && locale-gen en_US.UTF-8 && update-locale
 RUN echo 'LANG="en_US.UTF-8"' > /etc/default/locale
 
 # Add the PostgreSQL PGP key to verify their Debian packages.
